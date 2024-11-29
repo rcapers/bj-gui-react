@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { GameState, Card, Suit, Value, GamePhase, Settings } from '../types/game';
 import { playSound } from '../utils/sounds';
+import { getHint } from '../utils/hints';
 
 const createDeck = (): Card[] => {
   const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -65,6 +66,7 @@ const initialState: GameState = {
     soundEnabled: true,
     hintsEnabled: true
   },
+  currentHint: '',
   stats: {
     gamesPlayed: 0,
     wins: 0,
@@ -94,78 +96,135 @@ export const useGameStore = create<GameState>((set) => ({
   }),
 
   dealCards: () => set((state) => {
-    if (state.gamePhase !== 'dealing') return state;
+    if (state.gamePhase !== 'dealing' || state.player.bet === 0) return state;
 
     const newDeck = [...state.deck];
-    const playerHand = [newDeck.pop()!, newDeck.pop()!];
-    const dealerHand = [newDeck.pop()!, { ...newDeck.pop()!, hidden: true }];
-    
-    // Play card dealing sounds
-    setTimeout(() => playSound('cardSlide'), 0);
-    setTimeout(() => playSound('cardSlide'), 200);
-    setTimeout(() => playSound('cardSlide'), 400);
-    setTimeout(() => playSound('cardSlide'), 600);
+    const playerCard1 = newDeck.pop()!;
+    const playerCard2 = newDeck.pop()!;
+    const dealerCard1 = newDeck.pop()!;
+    const dealerCard2 = { ...newDeck.pop()!, hidden: true };
 
-    const playerScore = calculateScore(playerHand);
-    const dealerScore = calculateScore(dealerHand);
-
-    // Check for blackjack
-    if (playerScore === 21) {
-      setTimeout(() => playSound('win'), 800);
-      return {
-        ...state,
-        deck: newDeck,
-        player: { ...state.player, hand: playerHand, score: playerScore },
-        dealer: { ...state.dealer, hand: dealerHand, score: dealerScore },
-        gamePhase: 'gameOver',
-        message: '🎉 Blackjack!',
-        balance: state.balance + state.player.bet * 2.5,
-        stats: {
-          ...state.stats,
-          wins: state.stats.wins + 1,
-          currentStreak: state.stats.currentStreak + 1,
-          longestStreak: Math.max(state.stats.longestStreak, state.stats.currentStreak + 1),
-          biggestWin: Math.max(state.stats.biggestWin, state.player.bet * 1.5),
-          gamesPlayed: state.stats.gamesPlayed + 1
-        }
-      };
-    }
-
-    return {
+    // Initial deal with first card only
+    const initialState = {
       ...state,
       deck: newDeck,
-      player: { ...state.player, hand: playerHand, score: playerScore },
-      dealer: { ...state.dealer, hand: dealerHand, score: dealerScore },
-      gamePhase: 'playing',
-      message: '🎯 Your turn'
+      player: { 
+        ...state.player, 
+        hand: [playerCard1],
+        score: calculateScore([playerCard1])
+      },
+      dealer: { 
+        ...state.dealer, 
+        hand: [],
+        score: 0
+      },
+      gamePhase: 'playerTurn',
+      message: 'Dealing cards...'
     };
+
+    // Schedule the remaining cards
+    setTimeout(() => {
+      set(state => ({
+        ...state,
+        dealer: {
+          ...state.dealer,
+          hand: [dealerCard1],
+          score: calculateScore([dealerCard1])
+        }
+      }));
+      playSound('cardSlide', state.settings);
+    }, 300);
+
+    setTimeout(() => {
+      set(state => ({
+        ...state,
+        player: {
+          ...state.player,
+          hand: [playerCard1, playerCard2],
+          score: calculateScore([playerCard1, playerCard2])
+        }
+      }));
+      playSound('cardSlide', state.settings);
+    }, 600);
+
+    setTimeout(() => {
+      set(state => {
+        const finalDealerHand = [dealerCard1, dealerCard2];
+        const playerScore = calculateScore([playerCard1, playerCard2]);
+        const currentHint = state.settings.hintsEnabled ? getHint([playerCard1, playerCard2], finalDealerHand) : '';
+
+        // Check for blackjack
+        if (playerScore === 21) {
+          playSound('win', state.settings);
+          return {
+            ...state,
+            dealer: {
+              ...state.dealer,
+              hand: finalDealerHand,
+              score: calculateScore([dealerCard1])
+            },
+            message: ' Blackjack! You win!',
+            balance: state.balance + Math.floor(state.player.bet * 2.5),
+            gamePhase: 'gameOver',
+            stats: {
+              ...state.stats,
+              wins: state.stats.wins + 1,
+              currentStreak: state.stats.currentStreak + 1,
+              longestStreak: Math.max(state.stats.longestStreak, state.stats.currentStreak + 1),
+              biggestWin: Math.max(state.stats.biggestWin, state.player.bet * 1.5),
+              gamesPlayed: state.stats.gamesPlayed + 1
+            },
+            currentHint
+          };
+        }
+
+        return {
+          ...state,
+          dealer: {
+            ...state.dealer,
+            hand: finalDealerHand,
+            score: calculateScore([dealerCard1])
+          },
+          message: 'Your turn!',
+          currentHint
+        };
+      });
+      playSound('cardSlide', state.settings);
+    }, 900);
+
+    // Play the first card sound immediately
+    playSound('cardSlide', state.settings);
+    
+    return initialState;
   }),
 
   hit: () => set((state) => {
-    if (state.gamePhase !== 'playing') return state;
+    if (state.gamePhase !== 'playerTurn') return state;
     
     const newDeck = [...state.deck];
-    const newCard = newDeck.pop()!;
-    const newHand = [...state.player.hand, newCard];
+    const newHand = [...state.player.hand, newDeck.pop()!];
     const newScore = calculateScore(newHand);
-    
-    playSound('cardSlide');
+
+    const currentHint = state.settings.hintsEnabled ? getHint(newHand, state.dealer.hand) : '';
+
+    playSound('cardSlide', state.settings);
     
     if (newScore > 21) {
-      setTimeout(() => playSound('lose'), 300);
+      setTimeout(() => playSound('lose', state.settings), 300);
       return {
         ...state,
         deck: newDeck,
         player: { ...state.player, hand: newHand, score: newScore },
         gamePhase: 'gameOver',
-        message: '💥 Bust!',
+        message: ' Bust!',
         stats: {
           ...state.stats,
           losses: state.stats.losses + 1,
           currentStreak: 0,
           biggestLoss: Math.max(state.stats.biggestLoss, state.player.bet),
           gamesPlayed: state.stats.gamesPlayed + 1
-        }
+        },
+        currentHint
       };
     }
     
@@ -173,19 +232,21 @@ export const useGameStore = create<GameState>((set) => ({
       ...state,
       deck: newDeck,
       player: { ...state.player, hand: newHand, score: newScore },
-      message: '🎯 Your turn'
+      message: 'Your turn',
+      currentHint
     };
   }),
 
   stand: () => {
-    playSound('cardFlip');
+    playSound('cardFlip', state.settings);
     set((state) => ({
       gamePhase: 'dealerTurn',
-      message: '🎲 Dealer\'s turn',
+      message: ' Dealer\'s turn',
       dealer: {
         ...state.dealer,
         hand: state.dealer.hand.map(card => ({ ...card, hidden: false }))
-      }
+      },
+      currentHint: ''
     }));
   },
 
@@ -197,11 +258,13 @@ export const useGameStore = create<GameState>((set) => ({
     const newHand = [...state.player.hand, newCard];
     const newScore = calculateScore(newHand);
 
-    playSound('chipStack');
-    setTimeout(() => playSound('cardSlide'), 300);
+    const currentHint = state.settings.hintsEnabled ? getHint(newHand, state.dealer.hand) : '';
+
+    playSound('chipStack', state.settings);
+    setTimeout(() => playSound('cardSlide', state.settings), 300);
     
     if (newScore > 21) {
-      playSound('lose');
+      playSound('lose', state.settings);
       return {
         deck: newDeck,
         player: { 
@@ -212,14 +275,15 @@ export const useGameStore = create<GameState>((set) => ({
         },
         balance: state.balance - state.player.bet,
         gamePhase: 'gameOver',
-        message: '💥 Bust!',
+        message: ' Bust!',
         stats: {
           ...state.stats,
           losses: state.stats.losses + 1,
           currentStreak: 0,
           biggestLoss: Math.max(state.stats.biggestLoss, state.player.bet * 2),
           gamesPlayed: state.stats.gamesPlayed + 1
-        }
+        },
+        currentHint
       };
     }
 
@@ -233,45 +297,54 @@ export const useGameStore = create<GameState>((set) => ({
       },
       balance: state.balance - state.player.bet,
       gamePhase: 'dealerTurn',
-      message: '🎲 Dealer\'s turn',
+      message: ' Dealer\'s turn',
       dealer: {
         ...state.dealer,
         hand: state.dealer.hand.map(card => ({ ...card, hidden: false }))
-      }
+      },
+      currentHint
     };
   }),
 
   dealerPlay: () => set((state) => {
-    if (state.gamePhase !== 'dealerTurn') return state;
+    console.log('Starting dealerPlay');
+    if (state.gamePhase !== 'dealerTurn') {
+      console.log('Not dealer turn, returning');
+      return state;
+    }
 
     const newDeck = [...state.deck];
     const newHand = [...state.dealer.hand];
     let newScore = calculateScore(newHand);
+    console.log('Initial dealer score:', newScore);
 
     // Deal dealer cards
     while (newScore < 17) {
       const newCard = newDeck.pop()!;
       newHand.push(newCard);
       newScore = calculateScore(newHand);
-      playSound('cardSlide');
+      console.log('Dealer drew card, new score:', newScore);
+      playSound('cardSlide', state.settings);
     }
 
     const playerScore = state.player.score;
-    console.log('Final scores -', { player: playerScore, dealer: newScore });
+    console.log('Comparing scores:', { player: playerScore, dealer: newScore });
 
+    // Create the result state first
     const result = {
       deck: newDeck,
       dealer: { ...state.dealer, hand: newHand, score: newScore },
       gamePhase: 'gameOver' as const,
       message: '',
       balance: state.balance,
-      stats: { ...state.stats }
+      stats: { ...state.stats },
+      currentHint: ''
     };
 
-    // Handle game outcome
+    // Determine outcome and play sound immediately
     if (newScore > 21) {
-      console.log('Dealer bust - player wins!');
-      result.message = '🎉 You win! Dealer bust!';
+      console.log('OUTCOME: Dealer bust - Playing win sound');
+      result.message = ' You win! Dealer bust!';
       result.balance += state.player.bet * 2;
       result.stats = {
         ...state.stats,
@@ -281,10 +354,12 @@ export const useGameStore = create<GameState>((set) => ({
         biggestWin: Math.max(state.stats.biggestWin, state.player.bet),
         gamesPlayed: state.stats.gamesPlayed + 1
       };
-      setTimeout(() => playSound('win'), 500);
+      console.log('About to play win sound');
+      playSound('win', state.settings);
+      console.log('Win sound played');
     } else if (playerScore > newScore) {
-      console.log('Player wins with higher score!');
-      result.message = '🎉 You win!';
+      console.log('OUTCOME: Player wins with higher score - Playing win sound');
+      result.message = ' You win!';
       result.balance += state.player.bet * 2;
       result.stats = {
         ...state.stats,
@@ -294,10 +369,12 @@ export const useGameStore = create<GameState>((set) => ({
         biggestWin: Math.max(state.stats.biggestWin, state.player.bet),
         gamesPlayed: state.stats.gamesPlayed + 1
       };
-      setTimeout(() => playSound('win'), 500);
-    } else if (playerScore < newScore) {
-      console.log('Dealer wins!');
-      result.message = '💔 Dealer wins';
+      console.log('About to play win sound');
+      playSound('win', state.settings);
+      console.log('Win sound played');
+    } else if (playerScore < newScore && newScore <= 21) {
+      console.log('OUTCOME: Dealer wins - Playing lose sound');
+      result.message = ' Dealer wins';
       result.stats = {
         ...state.stats,
         losses: state.stats.losses + 1,
@@ -305,18 +382,24 @@ export const useGameStore = create<GameState>((set) => ({
         biggestLoss: Math.max(state.stats.biggestLoss, state.player.bet),
         gamesPlayed: state.stats.gamesPlayed + 1
       };
-      setTimeout(() => playSound('lose'), 500);
+      console.log('About to play lose sound');
+      playSound('lose', state.settings);
+      console.log('Lose sound played');
     } else {
-      console.log('Push - tie game');
-      result.message = '🤝 Push';
+      console.log('OUTCOME: Push - Playing cardFlip sound');
+      result.message = ' Push';
       result.balance += state.player.bet;
       result.stats = {
         ...state.stats,
         pushes: state.stats.pushes + 1,
         gamesPlayed: state.stats.gamesPlayed + 1
       };
+      console.log('About to play cardFlip sound');
+      playSound('cardFlip', state.settings);
+      console.log('CardFlip sound played');
     }
 
+    console.log('Returning final state with message:', result.message);
     return result;
   }),
 

@@ -80,7 +80,7 @@ export const Controls = () => {
       )
     }
 
-    if (gamePhase === 'playing') {
+    if (gamePhase === 'playerTurn') {
       return (
         <Box>
           <Text 

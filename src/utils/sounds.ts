@@ -26,8 +26,8 @@ Object.values(sounds).forEach(sound => {
   });
 });
 
-export const playSound = (soundName: 'cardFlip' | 'cardSlide' | 'win' | 'lose') => {
-  const { settings } = useGameStore.getState();
+export const playSound = (soundName: 'cardFlip' | 'cardSlide' | 'win' | 'lose', settings: any) => {
+  // Get sound settings directly from the store
   if (!settings.soundEnabled) {
     console.log('Sound disabled, not playing:', soundName);
     return;
@@ -42,27 +42,23 @@ export const playSound = (soundName: 'cardFlip' | 'cardSlide' | 'win' | 'lose') 
   }
 
   try {
-    // Create a new instance and play immediately
-    const clone = sound.cloneNode() as HTMLAudioElement;
-    clone.volume = sound.volume;
+    // Reset the sound to the beginning
+    sound.currentTime = 0;
     
-    // Add error listener
-    clone.addEventListener('error', (e) => {
-      console.error(`Error playing sound ${soundName}:`, e);
-    });
-
-    // Add success listener
-    clone.addEventListener('playing', () => {
-      console.log(`Sound ${soundName} started playing`);
-    });
-
-    const playPromise = clone.play();
-    if (playPromise) {
-      playPromise.catch(error => {
-        console.error(`Error playing sound ${soundName}:`, error);
+    // Play the sound immediately
+    sound.play()
+      .then(() => {
+        console.log(`Successfully playing ${soundName}`);
+      })
+      .catch(error => {
+        console.error(`Error playing ${soundName}:`, error);
+        // Try one more time
+        setTimeout(() => {
+          sound.currentTime = 0;
+          sound.play().catch(e => console.error(`Retry failed for ${soundName}:`, e));
+        }, 100);
       });
-    }
   } catch (error) {
-    console.error(`Exception playing sound ${soundName}:`, error);
+    console.error(`Error playing sound ${soundName}:`, error);
   }
 };

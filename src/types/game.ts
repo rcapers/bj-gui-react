@@ -34,18 +34,35 @@ export interface Settings {
   hintsEnabled: boolean;
 }
 
-export type GamePhase = 'betting' | 'playing' | 'dealerTurn' | 'gameOver';
+export type GamePhase = 'betting' | 'playerTurn' | 'dealerTurn' | 'gameOver';
 
 export interface GameState {
   deck: Card[];
-  player: Player;
-  dealer: Dealer;
+  player: {
+    hand: Card[];
+    score: number;
+    bet: number;
+  };
+  dealer: {
+    hand: Card[];
+    score: number;
+  };
   balance: number;
   gamePhase: GamePhase;
   message: string;
-  stats: Stats;
+  stats: {
+    wins: number;
+    losses: number;
+    pushes: number;
+    currentStreak: number;
+    longestStreak: number;
+    biggestWin: number;
+    biggestLoss: number;
+    gamesPlayed: number;
+  };
   settings: Settings;
-  
+  currentHint: string;
+
   // Actions
   placeBet: (amount: number) => void;
   dealCards: () => void;
