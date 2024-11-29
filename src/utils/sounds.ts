@@ -1,11 +1,10 @@
-import { useGameStore } from '../store/gameStore';
-
 // Pre-load audio files
 const sounds = {
   cardFlip: new Audio('/sounds/card-flip.mp3'),
   cardSlide: new Audio('/sounds/card-slide.mp3'),
   win: new Audio('/sounds/win.mp3'),
-  lose: new Audio('/sounds/lose.mp3')
+  lose: new Audio('/sounds/lose.mp3'),
+  chipStack: new Audio('/sounds/card-flip.mp3')  // Using card-flip for now as a placeholder
 };
 
 // Adjust volumes individually
@@ -13,6 +12,7 @@ sounds.cardFlip.volume = 0.5;
 sounds.cardSlide.volume = 0.5;
 sounds.win.volume = 0.7;    // Increased win volume
 sounds.lose.volume = 0.7;   // Increased lose volume
+sounds.chipStack.volume = 0.5;
 
 // Make sure sounds are loaded
 Object.values(sounds).forEach(sound => {
@@ -26,9 +26,13 @@ Object.values(sounds).forEach(sound => {
   });
 });
 
-export const playSound = (soundName: 'cardFlip' | 'cardSlide' | 'win' | 'lose', settings: any) => {
-  // Get sound settings directly from the store
-  if (!settings.soundEnabled) {
+type GameSettings = {
+  soundEnabled: boolean;
+  hintsEnabled: boolean;
+};
+
+export const playSound = (soundName: keyof typeof sounds, settings: GameSettings) => {
+  if (!settings?.soundEnabled) {
     console.log('Sound disabled, not playing:', soundName);
     return;
   }

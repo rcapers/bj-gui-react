@@ -237,18 +237,101 @@ export const useGameStore = create<GameState>((set) => ({
     };
   }),
 
-  stand: () => {
+  stand: () => set((state) => {
+    // First reveal dealer's card with a flip sound
     playSound('cardFlip', state.settings);
-    set((state) => ({
+    
+    // Update state to reveal dealer's card and change phase
+    const newState = {
+      ...state,
       gamePhase: 'dealerTurn',
       message: ' Dealer\'s turn',
       dealer: {
         ...state.dealer,
         hand: state.dealer.hand.map(card => ({ ...card, hidden: false }))
-      },
-      currentHint: ''
-    }));
-  },
+      }
+    };
+
+    // Schedule dealer's play after a short delay to let the flip animation complete
+    setTimeout(() => {
+      set((state) => {
+        if (state.gamePhase !== 'dealerTurn') return state;
+
+        const newDeck = [...state.deck];
+        const newHand = [...state.dealer.hand];
+        let newScore = calculateScore(newHand);
+
+        // Deal dealer cards
+        while (newScore < 17) {
+          const newCard = newDeck.pop()!;
+          newHand.push(newCard);
+          newScore = calculateScore(newHand);
+          playSound('cardSlide', state.settings);
+        }
+
+        const playerScore = state.player.score;
+        const result = {
+          deck: newDeck,
+          dealer: { ...state.dealer, hand: newHand, score: newScore },
+          gamePhase: 'gameOver' as const,
+          message: '',
+          balance: state.balance,
+          stats: { ...state.stats },
+          currentHint: ''
+        };
+
+        // Determine outcome and play sound
+        if (newScore > 21) {
+          result.message = ' You win! Dealer bust!';
+          result.balance += state.player.bet * 2;
+          result.stats = {
+            ...state.stats,
+            wins: state.stats.wins + 1,
+            currentStreak: state.stats.currentStreak + 1,
+            longestStreak: Math.max(state.stats.longestStreak, state.stats.currentStreak + 1),
+            biggestWin: Math.max(state.stats.biggestWin, state.player.bet),
+            gamesPlayed: state.stats.gamesPlayed + 1
+          };
+          playSound('win', state.settings);
+        } else if (playerScore > newScore) {
+          result.message = ' You win!';
+          result.balance += state.player.bet * 2;
+          result.stats = {
+            ...state.stats,
+            wins: state.stats.wins + 1,
+            currentStreak: state.stats.currentStreak + 1,
+            longestStreak: Math.max(state.stats.longestStreak, state.stats.currentStreak + 1),
+            biggestWin: Math.max(state.stats.biggestWin, state.player.bet),
+            gamesPlayed: state.stats.gamesPlayed + 1
+          };
+          playSound('win', state.settings);
+        } else if (playerScore < newScore && newScore <= 21) {
+          result.message = ' Dealer wins';
+          result.stats = {
+            ...state.stats,
+            losses: state.stats.losses + 1,
+            currentStreak: 0,
+            biggestLoss: Math.max(state.stats.biggestLoss, state.player.bet),
+            gamesPlayed: state.stats.gamesPlayed + 1
+          };
+          playSound('lose', state.settings);
+        } else {
+          result.message = ' Push';
+          result.balance += state.player.bet;
+          result.stats = {
+            ...state.stats,
+            pushes: state.stats.pushes + 1,
+            gamesPlayed: state.stats.gamesPlayed + 1
+          };
+          playSound('cardFlip', state.settings);
+        }
+
+        return result;
+      });
+    }, 500);
+
+    return newState;
+  }),
 
   double: () => set((state) => {
     if (state.balance < state.player.bet) return state;
