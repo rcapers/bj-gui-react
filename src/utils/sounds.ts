@@ -32,12 +32,7 @@ type GameSettings = {
 };
 
 export const playSound = (soundName: keyof typeof sounds, settings: GameSettings) => {
-  if (!settings?.soundEnabled) {
-    console.log('Sound disabled, not playing:', soundName);
-    return;
-  }
-
-  console.log('Attempting to play sound:', soundName);
+  if (!settings?.soundEnabled) return;
 
   const sound = sounds[soundName];
   if (!sound) {
@@ -51,9 +46,6 @@ export const playSound = (soundName: keyof typeof sounds, settings: GameSettings
     
     // Play the sound immediately
     sound.play()
-      .then(() => {
-        console.log(`Successfully playing ${soundName}`);
-      })
       .catch(error => {
         console.error(`Error playing ${soundName}:`, error);
         // Try one more time

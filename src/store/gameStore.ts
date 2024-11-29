@@ -390,30 +390,21 @@ export const useGameStore = create<GameState>((set) => ({
   }),
 
   dealerPlay: () => set((state) => {
-    console.log('Starting dealerPlay');
-    if (state.gamePhase !== 'dealerTurn') {
-      console.log('Not dealer turn, returning');
-      return state;
-    }
+    if (state.gamePhase !== 'dealerTurn') return state;
 
     const newDeck = [...state.deck];
     const newHand = [...state.dealer.hand];
     let newScore = calculateScore(newHand);
-    console.log('Initial dealer score:', newScore);
 
     // Deal dealer cards
     while (newScore < 17) {
       const newCard = newDeck.pop()!;
       newHand.push(newCard);
       newScore = calculateScore(newHand);
-      console.log('Dealer drew card, new score:', newScore);
       playSound('cardSlide', state.settings);
     }
 
     const playerScore = state.player.score;
-    console.log('Comparing scores:', { player: playerScore, dealer: newScore });
-
-    // Create the result state first
     const result = {
       deck: newDeck,
       dealer: { ...state.dealer, hand: newHand, score: newScore },
@@ -426,7 +417,6 @@ export const useGameStore = create<GameState>((set) => ({
 
     // Determine outcome and play sound immediately
     if (newScore > 21) {
-      console.log('OUTCOME: Dealer bust - Playing win sound');
       result.message = ' You win! Dealer bust!';
       result.balance += state.player.bet * 2;
       result.stats = {
@@ -437,11 +427,8 @@ export const useGameStore = create<GameState>((set) => ({
         biggestWin: Math.max(state.stats.biggestWin, state.player.bet),
         gamesPlayed: state.stats.gamesPlayed + 1
       };
-      console.log('About to play win sound');
       playSound('win', state.settings);
-      console.log('Win sound played');
     } else if (playerScore > newScore) {
-      console.log('OUTCOME: Player wins with higher score - Playing win sound');
       result.message = ' You win!';
       result.balance += state.player.bet * 2;
       result.stats = {
@@ -452,11 +439,8 @@ export const useGameStore = create<GameState>((set) => ({
         biggestWin: Math.max(state.stats.biggestWin, state.player.bet),
         gamesPlayed: state.stats.gamesPlayed + 1
       };
-      console.log('About to play win sound');
       playSound('win', state.settings);
-      console.log('Win sound played');
     } else if (playerScore < newScore && newScore <= 21) {
-      console.log('OUTCOME: Dealer wins - Playing lose sound');
       result.message = ' Dealer wins';
       result.stats = {
         ...state.stats,
@@ -465,11 +449,8 @@ export const useGameStore = create<GameState>((set) => ({
         biggestLoss: Math.max(state.stats.biggestLoss, state.player.bet),
         gamesPlayed: state.stats.gamesPlayed + 1
       };
-      console.log('About to play lose sound');
       playSound('lose', state.settings);
-      console.log('Lose sound played');
     } else {
-      console.log('OUTCOME: Push - Playing cardFlip sound');
       result.message = ' Push';
       result.balance += state.player.bet;
       result.stats = {
@@ -477,12 +458,9 @@ export const useGameStore = create<GameState>((set) => ({
         pushes: state.stats.pushes + 1,
         gamesPlayed: state.stats.gamesPlayed + 1
       };
-      console.log('About to play cardFlip sound');
       playSound('cardFlip', state.settings);
-      console.log('CardFlip sound played');
     }
 
-    console.log('Returning final state with message:', result.message);
     return result;
   }),
 
