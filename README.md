@@ -41,7 +41,7 @@ Welcome to the Blackjack React Game! This is a simple yet engaging implementatio
 ### Running the Game
 To start the development server, run:
 ```bash
-npm start
+npm run dev
 ```
 This will open the game in your default web browser. You can now play the game and make changes to the code, which will automatically reload the game.
 
