@@ -2,10 +2,8 @@
 
 Welcome to the Blackjack React Game! This is a simple yet engaging implementation of the classic Blackjack game using React and Zustand for state management.
 
-## Screenshot
-
-<img width="1024" alt="image" src="https://github.com/user-attachments/assets/f2a60ca6-3e81-4cd8-963c-dbc66aad4708">
-
+## Gameplay Preview Video
+https://github.com/user-attachments/assets/bc83f315-502f-4b18-bb94-229cbff10ff2
 
 ## Features
 - **Interactive Gameplay:** Enjoy a smooth and interactive experience with animations and sound effects.
