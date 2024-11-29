@@ -61,7 +61,7 @@ const CardComponent = ({ card, index }: CardProps) => {
 }
 
 export const GameTable = () => {
-  const { player, dealer, gamePhase, message } = useGameStore()
+  const { player, dealer, gamePhase, message, currentHint, settings } = useGameStore()
 
   // Handle dealer's turn
   useEffect(() => {
@@ -234,6 +234,33 @@ export const GameTable = () => {
             textShadow="0 2px 4px rgba(0,0,0,0.4)"
           >
             {message}
+          </Text>
+        </Box>
+      )}
+
+      {/* Hint Area */}
+      {settings.hintsEnabled && currentHint && gamePhase === 'playerTurn' && (
+        <Box
+          position="absolute"
+          left="50%"
+          bottom="250px"
+          transform="translateX(-50%)"
+          bg="blackAlpha.800"
+          px={4}
+          py={2}
+          borderRadius="lg"
+          boxShadow="dark-lg"
+          border="1px solid"
+          borderColor="whiteAlpha.200"
+          backdropFilter="blur(4px)"
+        >
+          <Text
+            fontSize="lg"
+            color="green.300"
+            textAlign="center"
+            fontStyle="italic"
+          >
+            Hint: {currentHint}
           </Text>
         </Box>
       )}
